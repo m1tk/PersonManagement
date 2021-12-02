@@ -248,6 +248,7 @@ public partial class Form1 : Form {
                 int age = 0;
                 if (this.verify_input(ref age)) {
                     this.verify_input(ref age);
+                    int selected = this.list.SelectedIndex;
                     this.modify_selected_elem(this.list.SelectedIndex, this.Vname.Text, this.Vlname.Text, age);
                     this.empty_textboxes();
                     this.modifier_state(true);
@@ -255,7 +256,7 @@ public partial class Form1 : Form {
                     this.Confirm.Enabled = false;
                     this.Cancel.Enabled  = false;
                     this.list.Enabled    = true;
-                    this.list.SelectedIndex = this.Members.Count-1;
+                    this.list.SelectedIndex = selected;
                 }
                 break;
             }
