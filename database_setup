@@ -1,0 +1,9 @@
+mysql_install_db --user=mysql --basedir=/usr --datadir=/var/lib/mysql
+
+# inside mariadb
+CREATE DATABASE 'person';
+CREATE TABLE person.person (id int auto_increment primary key, name text, lname text, age int);
+
+CREATE USER 'persongui'@'%' IDENTIFIED BY 'pass1';
+GRANT ALL PRIVILEGES ON person.* TO 'persongui'@'%' IDENTIFIED BY 'pass1';
+FLUSH PRIVILEGES;
