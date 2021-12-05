@@ -4,18 +4,6 @@ using System.ComponentModel;
 
 namespace guigui;
 
-public class Person {
-    public String Name { get; set; }
-    public String Lname { get; set; }
-    public int Age { get; set; }
-
-    public Person(String mname, String mlname, int mint) {
-        this.Name  = (String)mname.Clone();
-        this.Lname = (String)mlname.Clone();
-        this.Age   = mint;
-    }
-}
-
 public partial class Form1 : Form {
     enum form_state {
         INITIAL,
@@ -27,7 +15,10 @@ public partial class Form1 : Form {
     private form_state curr_state;
 
     public  ComboBox list;
-    private BindingList<Person> Members;
+    private PersonTable table;
+
+    public Button reload;
+    public Label is_connected; 
 
     public Button Add;
     public Button Modify;
@@ -43,21 +34,49 @@ public partial class Form1 : Form {
     public TextBox Vlname;
     public TextBox Vage;
 
-    public Form1() {
+    public ToolTip tips;
 
-        list = new ComboBox();
+    // Time for erros display
+    private System.Timers.Timer timer;
+    public  Label error;
+
+    public Form1() {
+        tips        = new ToolTip();
+        tips.Active = true;
+        tips.AutoPopDelay = 4000;
+        tips.InitialDelay = 600;
+
+        list               = new ComboBox();
         list.DropDownStyle = ComboBoxStyle.DropDownList;
-        list.Size = new Size(580, 80);
-        list.Location = new Point(20, 60);
-        this.Members = new BindingList<Person>();
-        this.Members.Add(new Person("", "", 0));
-        list.DataSource = this.Members;
+        list.Size          = new Size(540, 80);
+        list.Location      = new Point(20, 60);
+        this.table         = new PersonTable();
+
+        this.table.Persons.Add(new Person(-1, "", "", 0));
+        list.DataSource    = this.table.Persons;
         list.DisplayMember = "Name";
-        list.ValueMember = "Name";
+        list.ValueMember   = "Name";
         this.Controls.Add(list);
         this.list.DropDownClosed += new EventHandler(SelectedChanged);
 
-        this.Members.Add(new Person("1loo", "1", 1));
+        // reload button
+        reload                       = new Button();
+        reload.Size                  = new Size(25, 25);
+        reload.Location              = new Point(560, 59);
+        reload.BackgroundImage       = Image.FromFile(@"./reload.png");
+        reload.BackgroundImageLayout = ImageLayout.Stretch;
+        this.reload.Click           += new EventHandler(Reload_table);
+        tips.SetToolTip(reload, "Refresh table");
+        this.Controls.Add(reload);
+
+        // Connection status
+        is_connected                 = new Label();
+        is_connected.Size            = new Size(0, 0);
+        is_connected.Location        = new Point(585, 59);
+        is_connected.BackgroundImage = Image.FromFile(@"./no_connection.png");
+        is_connected.BackgroundImageLayout = ImageLayout.Stretch;
+        tips.SetToolTip(is_connected, "Database unreachable");
+        this.Controls.Add(is_connected);
 
         // Labels for text boxes
         name = new Label();
@@ -144,8 +163,49 @@ public partial class Form1 : Form {
         this.Controls.Add(Cancel);
         this.Cancel.Click += new EventHandler(Cancel_event);
 
+
+        timer = new System.Timers.Timer(5000);
+        timer.SynchronizingObject = this;
+        timer.Elapsed += new System.Timers.ElapsedEventHandler(clear_error_message);
+        timer.AutoReset = false;
+
+        error                 = new Label();
+        error.Size            = new Size(540, 40);
+        error.Location        = new Point(20, 450);
+        error.ForeColor       = System.Drawing.Color.Red;
+        error.Text            = "";
+        this.Controls.Add(error);
+
+
+        this.update_list();
         this.button_default_states();
         InitializeComponent();
+    }
+
+    public void clear_error_message(object sender, System.Timers.ElapsedEventArgs e) {
+        this.error.Text = "";
+    }
+
+    private void update_error_message(String error) {
+        if (this.timer.Enabled == true) {
+            this.timer.Enabled = false;
+        }
+        this.error.Text    = error;
+        this.timer.Enabled = true;
+    }
+
+    private void Reload_table(object sender, EventArgs e) {
+        this.update_list();
+    }
+
+    private void update_list() {
+        try {
+            this.table.update_list();
+            this.is_connected.Size = new Size(0, 0);
+        } catch (Exception e) {
+            this.is_connected.Size = new Size(25, 25);
+            this.update_error_message(e.Message);
+        }
     }
 
     private void SelectedChanged(object sender, EventArgs e) {
@@ -209,9 +269,9 @@ public partial class Form1 : Form {
         this.modifier_state(false);
         int ind = this.list.SelectedIndex;
         this.curr_state  = Form1.form_state.MODIFY;
-        this.Vname.Text  = (String)this.Members[ind].Name.Clone();
-        this.Vlname.Text = (String)this.Members[ind].Lname.Clone();
-        this.Vage.Text   = (String)this.Members[ind].Age.ToString();
+        this.Vname.Text  = (String)this.table.Persons[ind].Name.Clone();
+        this.Vlname.Text = (String)this.table.Persons[ind].Lname.Clone();
+        this.Vage.Text   = (String)this.table.Persons[ind].Age.ToString();
         this.list.Enabled    = false;
         this.Confirm.Enabled = true;
         this.Cancel.Enabled  = true;
@@ -219,11 +279,11 @@ public partial class Form1 : Form {
 
     private bool verify_input(ref int age) {
         if (this.Vname.Text == "" || this.Vlname.Text == "" || this.Vage.Text == "") {
-            MessageBox.Show("All fields must be filled");
+            this.update_error_message("All fields must be filled");
             return false;
         }
         if (!int.TryParse(this.Vage.Text, out age)) {
-            MessageBox.Show("Age must be a number");
+            this.update_error_message("Age must be a number");
             return false;
         }
         return true;
@@ -240,7 +300,7 @@ public partial class Form1 : Form {
                     this.list.Enabled = true;
                     this.Modify.Enabled = true;
                     this.Delete.Enabled = true;
-                    this.list.SelectedIndex = this.Members.Count-1;
+                    this.list.SelectedIndex = this.table.Persons.Count-1;
                 }
                 break;
             }
@@ -273,15 +333,33 @@ public partial class Form1 : Form {
     }
     
     private void add_elem(String name, String lname, int age) {
-        this.Members.Add(new Person(name, lname, age));
+        try {
+            this.table.Add(name, lname, age);
+            this.is_connected.Size = new Size(0, 0);
+        } catch (Exception e) {
+            this.is_connected.Size = new Size(25, 25);
+            this.update_error_message(e.Message);
+        }
     }
 
     private void modify_selected_elem(int ind, String name, String lname, int age) {
-        this.Members[ind] = new Person(name, lname, age);
+        try {
+            this.table.Modify(ind, name, lname, age);
+            this.is_connected.Size = new Size(0, 0);
+        } catch (Exception e) {
+            this.is_connected.Size = new Size(25, 25);
+            this.update_error_message(e.Message);
+        }
     }
 
     private void delete_elem(int ind) {
-        this.Members.RemoveAt(ind);
+        try {
+            this.table.Delete(ind);
+            this.is_connected.Size = new Size(0, 0);
+        } catch (Exception e) {
+            this.is_connected.Size = new Size(25, 25);
+            this.update_error_message(e.Message);
+        }
     }
 
     private void Cancel_event(object sender, EventArgs e) {
